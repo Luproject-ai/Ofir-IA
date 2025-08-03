@@ -1,0 +1,79 @@
+﻿
+import telebot
+import openai
+import os
+from gtts import gTTS
+
+TELEGRAM_BOT_API_KEY = "8309782250:AAG-kG9oboYc_tejb8oIbEsU9g3zZWKH72k"
+OPENAI_API_KEY = "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"
+
+bot = telebot.TeleBot(TELEGRAM_BOT_API_KEY)
+openai.api_key = OPENAI_API_KEY
+
+def texto_a_voz(texto, idioma="es"):
+    voz = gTTS(text=texto, lang=idioma)
+    voz.save("respuesta.mp3")
+    return "respuesta.mp3"
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_text = """
+¡Hola! 👋 Soy Ofir, tu agente de ventas y atención al cliente.
+
+Estoy aquí para ayudarte con cualquier consulta o necesidad que tengas. Puedo comunicarme en español, inglés y portugués.
+
+💡 Tip: Incluye las palabras "voz" o "audio" en tu mensaje para recibir también una respuesta en audio.
+
+¡Escríbeme cualquier pregunta y te ayudaré de inmediato!
+    """
+    bot.send_message(message.chat.id, welcome_text)
+
+@bot.message_handler(commands=['voz'])
+def send_voice_info(message):
+    info_text = """
+🎤 Función de Voz Activada
+
+Para recibir respuestas en audio, simplemente incluye la palabra "voz" o "audio" en tu mensaje.
+
+Ejemplo: "Explícame esto con voz"
+
+El bot te responderá tanto en texto como en audio.
+    """
+    bot.send_message(message.chat.id, info_text)
+
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    try:
+        print(f"Mensaje recibido de {message.from_user.first_name}: {message.text}")
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Sos Ofir, una agente de ventas y atención al cliente, muy persuasiva, carismática, empática y experta en todo. Hablás español, inglés y portugués."},
+                {"role": "user", "content": message.text}
+            ]
+        )
+        answer = response['choices'][0]['message']['content']
+
+        bot.send_message(message.chat.id, answer)
+
+        if "voz" in message.text.lower() or "audio" in message.text.lower():
+            try:
+                audio_file = texto_a_voz(answer)
+                with open(audio_file, 'rb') as voice:
+                    bot.send_voice(message.chat.id, voice)
+                os.remove(audio_file)
+            except Exception as voice_error:
+                print(f"Error de voz: {voice_error}")
+
+        print(f"Respuesta enviada a {message.from_user.first_name}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        bot.send_message(message.chat.id, "Lo siento, hubo un error procesando tu mensaje. Por favor, intenta nuevamente.")
+
+if __name__ == "__main__":
+    print("Ofir está corriendo...")
+    bot.infinity_polling()
+
+
